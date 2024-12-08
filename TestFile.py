@@ -33,58 +33,55 @@ range2_min, range2_max = 0, 480
 # Initialize variables
 counter1 = 50
 counter2 = 50
-clk1LastState = 0
-clk2LastState = 0
 
-# GPIO setup
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(clk1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(dt1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(clk2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(dt2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+# **Initialize clk1LastState and clk2LastState with their respective GPIO input states**
+clk1LastState = GPIO.input(clk1)  # Initialize to the current state of clk1
+clk2LastState = GPIO.input(clk2)  # Initialize to the current state of clk2
 
 # Mapping function
 def map_value(value, in_min, in_max, out_min, out_max):
-    value = max(in_min, min(in_max, value))  # Clamp the value
     return (value - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
 # Callback function for Encoder 1
 def rotary_callback1(channel):
-    global counter1
-
+    global counter1, clk1LastState  # Added clk1LastState to track properly
     clkState = GPIO.input(clk1)
     dtState = GPIO.input(dt1)
 
-    if clkState != clk1LastState:
+    if clkState != clk1LastState:  # State has changed
         if dtState != clkState:
             counter1 += 1
         else:
             counter1 -= 1
-
         # Map counter1 to range
-        mapped_value1 = map_value(counter1, 0, 100, range1_min, range1_max)  # Example counter range: 0-100
+        mapped_value1 = map_value(counter1, 0, 100, range1_min, range1_max)  # Adjusted for example range
         print(f"Encoder 1 Counter: {counter1}, Mapped Value: {mapped_value1}")
+    
+    # **Update clk1LastState**
+    clk1LastState = clkState
 
 # Callback function for Encoder 2
 def rotary_callback2(channel):
-    global counter2
-
+    global counter2, clk2LastState  # Added clk2LastState to track properly
     clkState = GPIO.input(clk2)
     dtState = GPIO.input(dt2)
 
-    if clkState != clk2LastState:
+    if clkState != clk2LastState:  # State has changed
         if dtState != clkState:
             counter2 += 1
         else:
             counter2 -= 1
-
         # Map counter2 to range
-        mapped_value2 = map_value(counter2, 0, 100, range2_min, range2_max)  # Example counter range: 0-100
+        mapped_value2 = map_value(counter2, 0, 100, range2_min, range2_max)  # Adjusted for example range
         print(f"Encoder 2 Counter: {counter2}, Mapped Value: {mapped_value2}")
+    
+    # **Update clk2LastState**
+    clk2LastState = clkState
 
-# Setup interrupts for both encoders
-GPIO.add_event_detect(clk1, GPIO.BOTH, callback=rotary_callback1, bouncetime=1)
-GPIO.add_event_detect(clk2, GPIO.BOTH, callback=rotary_callback2, bouncetime=1)
+# **Increased bouncetime for better signal stability**
+GPIO.add_event_detect(clk1, GPIO.BOTH, callback=rotary_callback1, bouncetime=5)
+GPIO.add_event_detect(clk2, GPIO.BOTH, callback=rotary_callback2, bouncetime=5)
+
 
 logging.basicConfig(level=logging.DEBUG)
 
