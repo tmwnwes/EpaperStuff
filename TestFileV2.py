@@ -60,45 +60,49 @@ def map_value(value, in_min, in_max, out_min, out_max):
 # Rotary encoder processing thread
 def rotary_thread():
     global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord
+    try:
+        while True:
+            # Handle Encoder 1
+            clkState1 = GPIO.input(clk1)
+            dtState1 = GPIO.input(dt1)
+            if clkState1 != clk1LastState:
+                if dtState1 != clkState1:
+                    counter1 += 1
+                else:
+                    counter1 -= 1
+                Xcoord = map_value(counter1, 0, 100, range1_min, range1_max)
+                logging.info(f"Encoder 1 Counter: {counter1}, Mapped Xcoord: {Xcoord}")
+            clk1LastState = clkState1
 
-    while True:
-        # Handle Encoder 1
-        clkState1 = GPIO.input(clk1)
-        dtState1 = GPIO.input(dt1)
-        if clkState1 != clk1LastState:
-            if dtState1 != clkState1:
-                counter1 += 1
-            else:
-                counter1 -= 1
-            Xcoord = map_value(counter1, 0, 100, range1_min, range1_max)
-            print(f"Encoder 1 Counter: {counter1}, Mapped Xcoord: {Xcoord}")
-        clk1LastState = clkState1
+            # Handle Encoder 2
+            clkState2 = GPIO.input(clk2)
+            dtState2 = GPIO.input(dt2)
+            if clkState2 != clk2LastState:
+                if dtState2 != clkState2:
+                    counter2 += 1
+                else:
+                    counter2 -= 1
+                Ycoord = map_value(counter2, 0, 100, range2_min, range2_max)
+                logging.info(f"Encoder 2 Counter: {counter2}, Mapped Ycoord: {Ycoord}")
+            clk2LastState = clkState2
 
-        # Handle Encoder 2
-        clkState2 = GPIO.input(clk2)
-        dtState2 = GPIO.input(dt2)
-        if clkState2 != clk2LastState:
-            if dtState2 != clkState2:
-                counter2 += 1
-            else:
-                counter2 -= 1
-            Ycoord = map_value(counter2, 0, 100, range2_min, range2_max)
-            print(f"Encoder 2 Counter: {counter2}, Mapped Ycoord: {Ycoord}")
-        clk2LastState = clkState2
-
-        # Sleep for a small amount to prevent excessive CPU usage
-        sleep(0.005)  # 5ms polling interval
+            # Sleep for a small amount to prevent excessive CPU usage
+            sleep(0.005)  # 5ms polling interval
+    except Exception as e:
+        logging.error(f"Exception in rotary_thread: {e}", exc_info=True)
 
 # Old coordinates update thread
 def update_old_coordinates():
     global XcoordOLD, YcoordOLD
-    while True:
-        XcoordOLD = Xcoord
-        YcoordOLD = Ycoord
-        if (XcoordOLD != Xcoord):
-            print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
-        sleep(0.5)  # 5ms interval
-
+    try:
+        while True:
+            XcoordOLD = Xcoord
+            YcoordOLD = Ycoord
+            if (XcoordOLD != Xcoord):
+                print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
+            sleep(0.5)  # 5ms interval
+    except Exception as e:
+        logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
 try:
     print("Dual Rotary Encoder Test with Threads - Press Ctrl+C to exit")
 
@@ -182,7 +186,6 @@ except KeyboardInterrupt:
     epd7in5b_V2.epdconfig.module_exit(cleanup=True)
     exit()
 
-
 finally:
     GPIO.cleanup()
-
+    logging.info("GPIO cleaned up.")
