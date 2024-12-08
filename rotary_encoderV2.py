@@ -55,7 +55,7 @@ def rotary_thread():
             else:
                 counter1 -= 1
             Xcoord = map_value(counter1, 0, 100, range1_min, range1_max)
-            print(f"Encoder 1 Counter: {counter1}, Mapped Xcoord: {Xcoord}")
+            print(f"Encoder 1 Counter: {counter1}, Old Xcoord: {XcoordOLD}, Mapped Xcoord: {Xcoord}")
         clk1LastState = clkState1
 
         # Handle Encoder 2
@@ -67,11 +67,11 @@ def rotary_thread():
             else:
                 counter2 -= 1
             Ycoord = map_value(counter2, 0, 100, range2_min, range2_max)
-            print(f"Encoder 2 Counter: {counter2}, Mapped Ycoord: {Ycoord}")
+            print(f"Encoder 2 Counter: {counter2}, Old Ycoord: {YcoordOLD}, Mapped Ycoord: {Ycoord}")
         clk2LastState = clkState2
 
         # Sleep for a small amount to prevent excessive CPU usage
-        sleep(0.05)  # 5ms polling interval
+        #sleep(0.05)  # 5ms polling interval
 
 # Old coordinates update thread
 def update_old_coordinates():
@@ -79,7 +79,7 @@ def update_old_coordinates():
     while True:
         XcoordOLD = Xcoord
         YcoordOLD = Ycoord
-        print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
+        #print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
         sleep(0.5)  # 5ms interval
 
 try:
@@ -94,7 +94,7 @@ try:
     # Main program loop
     while True:
         # Main loop can perform other tasks
-        sleep(0.1)  # Simulate work in the main loop
+        sleep(0.005)  # Simulate work in the main loop
 
 finally:
     GPIO.cleanup()
