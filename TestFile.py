@@ -34,6 +34,17 @@ range2_min, range2_max = 0, 480
 counter1 = 50
 counter2 = 50
 
+# GPIO setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(clk1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(dt1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(clk2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(dt2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+# Initialize variables
+counter1 = 50
+counter2 = 50
+
 # **Initialize clk1LastState and clk2LastState with their respective GPIO input states**
 clk1LastState = GPIO.input(clk1)  # Initialize to the current state of clk1
 clk2LastState = GPIO.input(clk2)  # Initialize to the current state of clk2
