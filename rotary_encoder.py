@@ -15,6 +15,9 @@ counter2 = 0
 clk1LastState = 0
 clk2LastState = 0
 
+Xcoord = 0
+Ycoord = 0
+
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(clk1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -34,7 +37,10 @@ def rotary_callback1(channel):
             counter1 += 1
         else:
             counter1 -= 1
-        print(f"Encoder 1 Counter: {counter1}")
+        #print(f"Encoder 1 Counter: {counter1}")
+
+        Xcoord = map(counter2, 0, 800, -100, 100)
+        print(f"Encoder 1 Counter: {Xcoord}")
 
     clk1LastState = clkState
 
@@ -50,8 +56,10 @@ def rotary_callback2(channel):
             counter2 += 1
         else:
             counter2 -= 1
-        print(f"Encoder 2 Counter: {counter2}")
+        #print(f"Encoder 2 Counter: {counter2}")
 
+        Ycoord = map(counter2, 0, 480, -50, 50)
+        print(f"Encoder 2 Counter: {Ycoord}")
     clk2LastState = clkState
 
 # Setup interrupts for both encoders
