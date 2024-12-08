@@ -103,8 +103,13 @@ def update_old_coordinates():
             sleep(0.5)  # 5ms interval
     except Exception as e:
         logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
+
 try:
-    print("Dual Rotary Encoder Test with Threads - Press Ctrl+C to exit")
+
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    logging.info("Dual Rotary Encoder Test with Threads - Press Ctrl+C to exit")
 
     # Start threads for rotary encoders and updating old coordinates
     encoder_thread = threading.Thread(target=rotary_thread, daemon=True)
