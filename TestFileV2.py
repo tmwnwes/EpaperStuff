@@ -36,6 +36,8 @@ counter2 = 50
 clk1LastState = 0
 clk2LastState = 0
 
+shutdown_flag = False
+
 # Coordinates for tracking
 Xcoord = 0
 Ycoord = 0
@@ -61,7 +63,7 @@ def map_value(value, in_min, in_max, out_min, out_max):
 def rotary_thread():
     global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord
     try:
-        while True:
+        while not shutdown_flag:
             # Handle Encoder 1
             clkState1 = GPIO.input(clk1)
             dtState1 = GPIO.input(dt1)
@@ -95,7 +97,7 @@ def rotary_thread():
 def update_old_coordinates():
     global XcoordOLD, YcoordOLD
     try:
-        while True:
+        while not shutdown_flag:
             XcoordOLD = Xcoord
             YcoordOLD = Ycoord
             if (XcoordOLD != Xcoord):
@@ -132,11 +134,16 @@ try:
     draw_Himage = ImageDraw.Draw(Himage)
     draw_other = ImageDraw.Draw(Other)
 
-    # for x in range(6):
-    #     draw_other.line((165, 50, 165, 100), fill = 0)
-    #     draw_Himage.line((140, 75, 190, 75), fill = 0)
 
-    # # Drawing on the Horizontal image
+    # for x in range(6):
+
+    #     if 
+    #     draw_other.line((165, 50, 165, 100), fill = 0)
+    #     #draw_Himage.line((140, 75, 190, 75), fill = 0)
+    #     time.sleep(1)
+
+
+    # Drawing on the Horizontal image
     logging.info("1.Drawing on the Horizontal image...")
     draw_Himage.text((10, 0), 'hello world', font = font24, fill = 0)
     draw_Himage.text((10, 20), '7.5inch e-Paper B', font = font24, fill = 0)
@@ -152,29 +159,12 @@ try:
     epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
     time.sleep(2)
 
-    logging.info("3.read bmp file")
-    epd.init_Fast()
-    Himage = Image.open(os.path.join(picdir, '7in5_V2_b.bmp'))
-    Himage_Other = Image.open(os.path.join(picdir, '7in5_V2_r.bmp'))
-    epd.display(epd.getbuffer(Himage),epd.getbuffer(Himage_Other))
-    time.sleep(2)
-
-    # # partial update
-    # logging.info("4.show time")
-    # epd.init()
-    # epd.display_Base_color(0xFF)
-    # epd.init_part()
-    # Himage = Image.new('1', (epd.width, epd.height), 0)
-    # draw_Himage = ImageDraw.Draw(Himage)
-    # num = 0
-    # while (True):
-    #     draw_Himage.rectangle((10, 120, 130, 170), fill = 0)
-    #     draw_Himage.text((10, 120), time.strftime('%H:%M:%S'), font = font24, fill = 255)
-    #     epd.display_Partial(epd.getbuffer(Himage),0, 0, epd.width, epd.height)
-    #     num = num + 1
-    #     if(num == 10):
-    #         break
-
+    # logging.info("3.read bmp file")
+    # epd.init_Fast()
+    # Himage = Image.open(os.path.join(picdir, '7in5_V2_b.bmp'))
+    # Himage_Other = Image.open(os.path.join(picdir, '7in5_V2_r.bmp'))
+    # epd.display(epd.getbuffer(Himage),epd.getbuffer(Himage_Other))
+    # time.sleep(2)
 
     logging.info("Clear...")
     epd.init()
@@ -186,11 +176,17 @@ try:
 except IOError as e:
     logging.info(e)
     
-except KeyboardInterrupt:    
+except KeyboardInterrupt:
+    logging.info("Shutdown signal received.")
     logging.info("ctrl + c:")
+    shutdown_flag = True  # Signal threads to stop
+    encoder_thread.join()  # Wait for threads to finish
+    coord_update_thread.join()
     epd7in5b_V2.epdconfig.module_exit(cleanup=True)
     exit()
 
 finally:
+    shutdown_flag = True  # Signal threads to stop
+    encoder_thread.join()  # Wait for threads to finish
     GPIO.cleanup()
     logging.info("GPIO cleaned up.")
