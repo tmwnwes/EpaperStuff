@@ -17,6 +17,8 @@ import traceback
 import threading
 from RPi import GPIO
 from time import sleep
+from gpiozero import Button
+
 
 # Pin definitions for Encoder 1
 clk1 = 19
@@ -25,6 +27,10 @@ dt1 = 16
 # Pin definitions for Encoder 2
 clk2 = 20
 dt2 = 26
+
+# Push buttons
+buttonL = Button(13)
+buttonR = Button(12)
 
 # Range for mapped values
 range1_min, range1_max = 0, 800
@@ -37,10 +43,11 @@ clk1LastState = 0
 clk2LastState = 0
 
 shutdown_flag = False
+is_update = False
+color_switch = False
+exit_drawing = False
 
 lock = threading.Lock()
-
-is_update = False
 
 # Coordinates for tracking
 Xcoord = 0
@@ -127,6 +134,28 @@ def update_old_coordinates():
     except Exception as e:
         logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
 
+def left_button_check():
+    global exit_drawing
+    try:
+        while not shutdown_flag:
+            with lock: #maybe remove this
+                buttonL.wait_for_press()
+                print(f"Left button pressed")
+                exit_drawing = True
+
+    except Exception as e:
+        logging.error(f"Exception in left_button_check: {e}", exc_info=True)
+
+def right_button_check():
+    global color_switch
+    try:
+        while not shutdown_flag:
+            with lock: #maybe remove this
+                buttonR.wait_for_press()
+                color_switch = not color_switch
+    except Exception as e:
+        logging.error(f"Exception in right_button_check: {e}", exc_info=True)
+
 try:
 
     # Setup logging
@@ -137,8 +166,12 @@ try:
     # Start threads for rotary encoders and updating old coordinates
     encoder_thread = threading.Thread(target=rotary_thread, daemon=True)
     coord_update_thread = threading.Thread(target=update_old_coordinates, daemon=True)
+    left_button_thread = threading.Thread(target=left_button_check, daemon=True)
+    right_button_thread = threading.Thread(target=right_button_check, daemon=True)
     encoder_thread.start()
     coord_update_thread.start()
+    left_button_thread.start()
+    right_button_thread.start()
 
     logging.info("Etch a Sketch Test")
 
@@ -152,34 +185,19 @@ try:
     draw_Himage = ImageDraw.Draw(Himage)
     draw_other = ImageDraw.Draw(Other)
 
-
-
-    for x in range(10):
-        time.sleep(5)
+    while not exit_drawing:
         tempX, tempY, tempX2, tempY2 = XcoordOLD, YcoordOLD, Xcoord, Ycoord
-
-        draw_other.line((tempX, tempY, tempX2, tempY2), fill = 0)
-        epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
-        is_update = True
-        
-
-
-
-    # Drawing on the Horizontal image
-    # logging.info("1.Drawing on the Horizontal image...")
-    # draw_Himage.text((10, 0), 'hello world', font = font24, fill = 0)
-    # draw_Himage.text((10, 20), '7.5inch e-Paper B', font = font24, fill = 0)
-    # draw_Himage.text((150, 0), u'微雪电子', font = font24, fill = 0)    
-    # draw_other.line((20, 50, 70, 100), fill = 0)
-    # draw_other.line((70, 50, 20, 100), fill = 0)
-    # draw_other.rectangle((20, 50, 70, 100), outline = 0)
-    # draw_other.line((165, 50, 165, 100), fill = 0)
-    # draw_Himage.line((140, 75, 190, 75), fill = 0)
-    # draw_Himage.arc((140, 50, 190, 100), 0, 360, fill = 0)
-    # draw_Himage.rectangle((80, 50, 130, 100), fill = 0)
-    # draw_Himage.chord((200, 50, 250, 100), 0, 360, fill = 0)
-    # epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
-    # time.sleep(2)
+        if color_switch:
+            draw_other.line((tempX, tempY, tempX2, tempY2), fill = 0)
+            epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+            is_update = True
+        elif not color_switch:
+            draw_Himage.line((tempX, tempY, tempX2, tempY2), fill = 0)
+            epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+            is_update = True
+        for x in range(5, 0, -1):
+            print(x) 
+            time.sleep(1)
 
     # logging.info("3.read bmp file")
     # epd.init_Fast()
