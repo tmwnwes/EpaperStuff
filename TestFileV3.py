@@ -18,132 +18,204 @@ import threading
 from RPi import GPIO
 from time import sleep
 
+# Pin definitions for Encoder 1
+clk1 = 19
+dt1 = 16
 
-# Paths for assets
-picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'pic')
-libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
-if os.path.exists(libdir):
-    sys.path.append(libdir)
+# Pin definitions for Encoder 2
+clk2 = 20
+dt2 = 26
 
+# Range for mapped values
+range1_min, range1_max = 0, 800
+range2_min, range2_max = 0, 480
 
-
-# GPIO pins for rotary encoders
-ENCODER_1_CLK = 19
-ENCODER_1_DT = 16
-ENCODER_2_CLK = 20
-ENCODER_2_DT = 26
-
-# Mapped value ranges
-RANGE_X_MIN, RANGE_X_MAX = 0, 800
-RANGE_Y_MIN, RANGE_Y_MAX = 0, 480
-
-# Shared variables
-Xcoord, Ycoord = 0, 0
-XcoordOLD, YcoordOLD = 0, 0
-is_update = False
+# Initialize variables
+counter1 = 50
+counter2 = 50
+clk1LastState = 0
+clk2LastState = 0
 
 shutdown_flag = False
+
 lock = threading.Lock()
+
+is_update = False
+
+# Coordinates for tracking
+Xcoord = 0
+Ycoord = 0
+XcoordOLD = 0
+YcoordOLD = 0
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(ENCODER_1_CLK, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(ENCODER_1_DT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(ENCODER_2_CLK, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(ENCODER_2_DT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(clk1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(dt1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(clk2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(dt2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Initialize clkLastState values
+clk1LastState = GPIO.input(clk1)
+clk2LastState = GPIO.input(clk2)
 
 # Mapping function
 def map_value(value, in_min, in_max, out_min, out_max):
     return (value - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
-# Rotary encoder handling
-def process_encoder(clk_pin, dt_pin, counter, range_min, range_max):
-    clk_last_state = GPIO.input(clk_pin)
-    while not shutdown_flag:
-        clk_state = GPIO.input(clk_pin)
-        dt_state = GPIO.input(dt_pin)
-        if clk_state != clk_last_state:
-            if dt_state != clk_state:
-                counter += 1
-            else:
-                counter -= 1
-            counter = max(0, min(counter, 100))  # Limit counter to [0, 100]
-            mapped_value = map_value(counter, 0, 100, range_min, range_max)
-            with lock:
-                if clk_pin == ENCODER_1_CLK:
-                    global Xcoord
-                    Xcoord = mapped_value
+# Rotary encoder processing thread
+def rotary_thread():
+    global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord
+    try:
+        while not shutdown_flag:
+            # Handle Encoder 1
+            clkState1 = GPIO.input(clk1)
+            dtState1 = GPIO.input(dt1)
+            if clkState1 != clk1LastState:
+                if dtState1 != clkState1:
+                    counter1 += 1
                 else:
-                    global Ycoord
-                    Ycoord = mapped_value
-            logging.info(f"Encoder on pin {clk_pin} updated: {mapped_value}")
-        clk_last_state = clk_state
-        time.sleep(0.005)
+                    counter1 -= 1
 
-# Coordinates update thread
-def update_coordinates():
+                counter1 = max(0, min(counter1, 100))  # Limit counter to [0, 100]
+                Xcoord = map_value(counter1, 0, 100, range1_min, range1_max)
+                logging.info(f"Encoder 1 Counter: {counter1}, Mapped Xcoord: {Xcoord}")
+            clk1LastState = clkState1
+
+            # Handle Encoder 2
+            clkState2 = GPIO.input(clk2)
+            dtState2 = GPIO.input(dt2)
+            if clkState2 != clk2LastState:
+                if dtState2 != clkState2:
+                    counter2 += 1
+                else:
+                    counter2 -= 1
+
+                counter2 = max(0, min(counter2, 100))  # Limit counter to [0, 100]
+                Ycoord = map_value(counter2, 0, 100, range2_min, range2_max)
+                logging.info(f"Encoder 2 Counter: {counter2}, Mapped Ycoord: {Ycoord}")
+            clk2LastState = clkState2
+
+            # Sleep for a small amount to prevent excessive CPU usage
+            sleep(0.005)  # 5ms polling interval
+    except Exception as e:
+        logging.error(f"Exception in rotary_thread: {e}", exc_info=True)
+
+# Old coordinates update thread
+def update_old_coordinates():
     global XcoordOLD, YcoordOLD, is_update
-    while not shutdown_flag:
-        with lock:
-            if (XcoordOLD != Xcoord) or (YcoordOLD != Ycoord):
-                XcoordOLD, YcoordOLD = Xcoord, Ycoord
-                is_update = True
-                logging.info(f"Coordinates updated: X={XcoordOLD}, Y={YcoordOLD}")
-        time.sleep(0.005)
+    previous_XcoordOLD = XcoordOLD  # Store the previous value
+    previous_YcoordOLD = YcoordOLD  # Store the previous value
+    try:
+        while not shutdown_flag:
+            with lock: #maybe remove this
+                if previous_XcoordOLD != Xcoord or previous_YcoordOLD != Ycoord:  # Detect changes
+                    XcoordOLD = Xcoord
+                    YcoordOLD = Ycoord
+                    is_update = True
+                    print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
 
-# E-paper display handler
-def display_handler():
+                # Update previous values for next iteration
+                previous_XcoordOLD = XcoordOLD
+                previous_YcoordOLD = YcoordOLD
+
+            time.sleep(1)
+    except Exception as e:
+        logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
+
+try:
+
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    logging.info("Dual Rotary Encoder Test with Threads - Press Ctrl+C to exit")
+
+    # Start threads for rotary encoders and updating old coordinates
+    encoder_thread = threading.Thread(target=rotary_thread, daemon=True)
+    coord_update_thread = threading.Thread(target=update_old_coordinates, daemon=True)
+    encoder_thread.start()
+    coord_update_thread.start()
+
+    logging.info("epd7in5b_V2 Demo")
+
     epd = epd7in5b_V2.EPD()
+    logging.info("init and Clear")
     epd.init()
     epd.Clear()
 
     font24 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 24)
     font18 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 18)
 
-    h_image = Image.new('1', (epd.width, epd.height), 255)
-    other_image = Image.new('1', (epd.width, epd.height), 255)
-    draw_h_image = ImageDraw.Draw(h_image)
-    draw_other = ImageDraw.Draw(other_image)
+    Himage = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame
+    Other = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame
+    draw_Himage = ImageDraw.Draw(Himage)
+    draw_other = ImageDraw.Draw(Other)
 
-    try:
-        while not shutdown_flag:
-            if is_update:
-                draw_other.line((XcoordOLD, YcoordOLD, Xcoord, Ycoord), fill=0)
-                epd.display(epd.getbuffer(h_image), epd.getbuffer(other_image))
-                logging.info("Display updated")
-            time.sleep(1)
-    except Exception as e:
-        logging.error(f"Display handler error: {e}", exc_info=True)
-    finally:
-        epd.Clear()
-        epd.sleep()
 
-# Unified shutdown
-def shutdown():
-    global shutdown_flag
-    logging.info("Shutting down...")
-    shutdown_flag = True
-    GPIO.cleanup()
-    logging.info("GPIO cleaned up.")
+    for x in range(10):
+        time.sleep(10)
+        draw_other.line((0, 0, Xcoord, Ycoord), fill = 0)
 
-# Main
-try:
-    logging.info("Starting rotary encoder threads...")
-    threading.Thread(target=process_encoder, args=(ENCODER_1_CLK, ENCODER_1_DT, 50, RANGE_X_MIN, RANGE_X_MAX), daemon=True).start()
-    threading.Thread(target=process_encoder, args=(ENCODER_2_CLK, ENCODER_2_DT, 50, RANGE_Y_MIN, RANGE_Y_MAX), daemon=True).start()
-    threading.Thread(target=update_coordinates, daemon=True).start()
-    threading.Thread(target=display_handler, daemon=True).start()
+    for x in range(10):
+        if is_update:
+            draw_other.line((XcoordOLD, YcoordOLD, Xcoord, Ycoord), fill = 0)
+            is_update = False
+        time.sleep(4)
 
-    while not shutdown_flag:
-        time.sleep(0.1)
+    for x in range(10):
+        if is_update:
+            draw_Himage.line((XcoordOLD, YcoordOLD, Xcoord, Ycoord), fill = 0)
+            is_update = False
+        time.sleep(1)
 
+    epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+
+
+    # Drawing on the Horizontal image
+    # logging.info("1.Drawing on the Horizontal image...")
+    # draw_Himage.text((10, 0), 'hello world', font = font24, fill = 0)
+    # draw_Himage.text((10, 20), '7.5inch e-Paper B', font = font24, fill = 0)
+    # draw_Himage.text((150, 0), u'微雪电子', font = font24, fill = 0)    
+    # draw_other.line((20, 50, 70, 100), fill = 0)
+    # draw_other.line((70, 50, 20, 100), fill = 0)
+    # draw_other.rectangle((20, 50, 70, 100), outline = 0)
+    # draw_other.line((165, 50, 165, 100), fill = 0)
+    # draw_Himage.line((140, 75, 190, 75), fill = 0)
+    # draw_Himage.arc((140, 50, 190, 100), 0, 360, fill = 0)
+    # draw_Himage.rectangle((80, 50, 130, 100), fill = 0)
+    # draw_Himage.chord((200, 50, 250, 100), 0, 360, fill = 0)
+    # epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+    # time.sleep(2)
+
+    # logging.info("3.read bmp file")
+    # epd.init_Fast()
+    # Himage = Image.open(os.path.join(picdir, '7in5_V2_b.bmp'))
+    # Himage_Other = Image.open(os.path.join(picdir, '7in5_V2_r.bmp'))
+    # epd.display(epd.getbuffer(Himage),epd.getbuffer(Himage_Other))
+    # time.sleep(2)
+
+    logging.info("Clear...")
+    epd.init()
+    epd.Clear()
+
+    logging.info("Goto Sleep...")
+    epd.sleep()
+    
+except IOError as e:
+    logging.info(e)
+    
 except KeyboardInterrupt:
     logging.info("Shutdown signal received.")
     logging.info("ctrl + c:")
-    shutdown()
+    shutdown_flag = True  # Signal threads to stop
+    encoder_thread.join()  # Wait for threads to finish
+    coord_update_thread.join()
+    epd7in5b_V2.epdconfig.module_exit(cleanup=True)
+    exit()
 
 finally:
-    shutdown()
+    shutdown_flag = True  # Signal threads to stop
+    encoder_thread.join()  # Wait for threads to finish
+    coord_update_thread.join()
+    GPIO.cleanup()
+    logging.info("GPIO cleaned up.")
