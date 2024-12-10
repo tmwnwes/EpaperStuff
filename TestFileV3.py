@@ -142,6 +142,9 @@ def left_button_check():
                 buttonL.wait_for_press()
                 print(f"Left button pressed")
                 exit_drawing = True
+                time.sleep(0.05)
+            time.sleep(0.05)
+        exit_drawing = True
 
     except Exception as e:
         logging.error(f"Exception in left_button_check: {e}", exc_info=True)
@@ -153,6 +156,8 @@ def right_button_check():
             with lock: #maybe remove this
                 buttonR.wait_for_press()
                 color_switch = not color_switch
+                time.sleep(0.05)
+            time.sleep(0.05)
     except Exception as e:
         logging.error(f"Exception in right_button_check: {e}", exc_info=True)
 
@@ -187,17 +192,19 @@ try:
 
     while not exit_drawing:
         tempX, tempY, tempX2, tempY2 = XcoordOLD, YcoordOLD, Xcoord, Ycoord
+        for x in range(5, 0, -1):
+            print(x) 
+            time.sleep(1)
         if color_switch:
             draw_other.line((tempX, tempY, tempX2, tempY2), fill = 0)
             epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+            print(f"red drawn")
             is_update = True
         elif not color_switch:
             draw_Himage.line((tempX, tempY, tempX2, tempY2), fill = 0)
             epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+            print(f"black drawn")
             is_update = True
-        for x in range(5, 0, -1):
-            print(x) 
-            time.sleep(1)
 
     # logging.info("3.read bmp file")
     # epd.init_Fast()
@@ -224,6 +231,8 @@ except KeyboardInterrupt:
     shutdown_flag = True  # Signal threads to stop
     encoder_thread.join()  # Wait for threads to finish
     coord_update_thread.join()
+    left_button_thread.join()
+    right_button_thread.join()
     epd7in5b_V2.epdconfig.module_exit(cleanup=True)
     exit()
 
@@ -231,5 +240,7 @@ finally:
     shutdown_flag = True  # Signal threads to stop
     encoder_thread.join()  # Wait for threads to finish
     coord_update_thread.join()
+    left_button_thread.join()
+    right_button_thread.join()
     GPIO.cleanup()
     logging.info("GPIO cleaned up.")
