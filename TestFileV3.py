@@ -43,7 +43,7 @@ clk1LastState = 0
 clk2LastState = 0
 
 shutdown_flag = False
-is_update = False
+# is_update = False
 color_switch = False
 exit_drawing = False
 
@@ -116,23 +116,23 @@ def rotary_thread():
         logging.error(f"Exception in rotary_thread: {e}", exc_info=True)
 
 # Old coordinates update thread
-def update_old_coordinates():
-    global XcoordOLD, YcoordOLD, tempX2, tempY2, is_update
-    XcoordOLD = 400
-    YcoordOLD = 240
+# def update_old_coordinates():
+#     global XcoordOLD, YcoordOLD, tempX2, tempY2, is_update
+#     XcoordOLD = 400
+#     YcoordOLD = 240
 
-    try:
-        while not shutdown_flag:
-            with lock: #maybe remove this
-                if is_update:  # Detect changes
-                    XcoordOLD = tempX2
-                    YcoordOLD = tempY2
-                    print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
-                    is_update = False
+#     try:
+#         while not shutdown_flag:
+#             with lock: #maybe remove this
+#                 if is_update:  # Detect changes
+#                     XcoordOLD = tempX2
+#                     YcoordOLD = tempY2
+#                     print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
+#                     is_update = False
 
-            time.sleep(1)
-    except Exception as e:
-        logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
+#             time.sleep(1)
+#     except Exception as e:
+#         logging.error(f"Exception in update_old_coordinates: {e}", exc_info=True)
 
 def left_button_check():
     global exit_drawing
@@ -167,11 +167,9 @@ try:
 
     # Start threads for rotary encoders and updating old coordinates
     encoder_thread = threading.Thread(target=rotary_thread, daemon=True)
-    coord_update_thread = threading.Thread(target=update_old_coordinates, daemon=True)
     left_button_thread = threading.Thread(target=left_button_check, daemon=True)
     right_button_thread = threading.Thread(target=right_button_check, daemon=True)
     encoder_thread.start()
-    coord_update_thread.start()
     left_button_thread.start()
     right_button_thread.start()
 
@@ -187,21 +185,29 @@ try:
     draw_Himage = ImageDraw.Draw(Himage)
     draw_other = ImageDraw.Draw(Other)
 
+
     while not exit_drawing:
-        tempX, tempY, tempX2, tempY2 = XcoordOLD, YcoordOLD, Xcoord, Ycoord
+        # Draw and update coordinates
+        tempX, tempY = XcoordOLD, YcoordOLD  # Start point
+        tempX2, tempY2 = Xcoord, Ycoord      # End point
+
         for x in range(5, 0, -1):
-            print(x) 
+            print(x)
             time.sleep(1)
+
+        # Draw the line in the selected color
         if color_switch:
-            draw_other.line((tempX, tempY, tempX2, tempY2), fill = 0)
-            epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
-            print(f"red drawn")
-            is_update = True
-        elif not color_switch:
-            draw_Himage.line((tempX, tempY, tempX2, tempY2), fill = 0)
-            epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
-            print(f"black drawn")
-            is_update = True
+            draw_other.line((tempX, tempY, tempX2, tempY2), fill=0)
+            epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
+            print("Red drawn")
+        else:
+            draw_Himage.line((tempX, tempY, tempX2, tempY2), fill=0)
+            epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
+            print("Black drawn")
+
+        # Update old coordinates for the next line
+        XcoordOLD, YcoordOLD = tempX2, tempY2
+
 
     # logging.info("3.read bmp file")
     # epd.init_Fast()
@@ -227,7 +233,6 @@ except KeyboardInterrupt:
     epd.sleep()
     shutdown_flag = True  # Signal threads to stop
     encoder_thread.join()  # Wait for threads to finish
-    coord_update_thread.join()
     left_button_thread.join()
     right_button_thread.join()
     epd7in5b_V2.epdconfig.module_exit(cleanup=True)
@@ -240,7 +245,6 @@ finally:
     # Wait for threads to finish
     try:
         encoder_thread.join(timeout=1)
-        coord_update_thread.join(timeout=1)
         left_button_thread.join(timeout=1)
         right_button_thread.join(timeout=1)
     except Exception as e:
