@@ -1,13 +1,22 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-import os
 import sys
-import threading
+import os
+picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'pic')
+libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
+if os.path.exists(libdir):
+    sys.path.append(libdir)
+
 import logging
-import time
 from waveshare_epd import epd7in5b_V2
-from PIL import Image,ImageDraw,ImageFont
 from RPi import GPIO
+import time
+from PIL import Image,ImageDraw,ImageFont
+import traceback
+
+import threading
+from RPi import GPIO
+from time import sleep
 
 
 # Paths for assets
@@ -93,7 +102,7 @@ def display_handler():
 
     font24 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 24)
     font18 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 18)
-    
+
     h_image = Image.new('1', (epd.width, epd.height), 255)
     other_image = Image.new('1', (epd.width, epd.height), 255)
     draw_h_image = ImageDraw.Draw(h_image)
