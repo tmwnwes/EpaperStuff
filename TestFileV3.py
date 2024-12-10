@@ -138,12 +138,11 @@ def left_button_check():
     global exit_drawing
     try:
         while not shutdown_flag:
-            buttonL.wait_for_press()
-            print(f"Left button pressed")
-            exit_drawing = True
-            time.sleep(0.05)
-        exit_drawing = True
-
+            if buttonL.is_pressed:
+                print("Left button pressed")
+                exit_drawing = True
+                time.sleep(0.5)  # Debounce
+            time.sleep(0.05)  # free up CPU
     except Exception as e:
         logging.error(f"Exception in left_button_check: {e}", exc_info=True)
 
@@ -151,9 +150,11 @@ def right_button_check():
     global color_switch
     try:
         while not shutdown_flag:
-            buttonR.wait_for_press()
-            color_switch = not color_switch
-            time.sleep(0.05)
+            if buttonR.is_pressed:
+                print("Right button pressed")
+                color_switch = not color_switch
+                time.sleep(0.5)  # Debounce
+            time.sleep(0.05)  # free up CPU
     except Exception as e:
         logging.error(f"Exception in right_button_check: {e}", exc_info=True)
 
@@ -233,10 +234,18 @@ except KeyboardInterrupt:
     exit()
 
 finally:
+    logging.info("Shutting down...")
     shutdown_flag = True  # Signal threads to stop
-    encoder_thread.join()  # Wait for threads to finish
-    coord_update_thread.join()
-    left_button_thread.join()
-    right_button_thread.join()
+
+    # Wait for threads to finish
+    try:
+        encoder_thread.join(timeout=1)
+        coord_update_thread.join(timeout=1)
+        left_button_thread.join(timeout=1)
+        right_button_thread.join(timeout=1)
+    except Exception as e:
+        logging.error(f"Error while joining threads: {e}")
+
     GPIO.cleanup()
-    logging.info("GPIO cleaned up.")
+    epd7in5b_V2.epdconfig.module_exit(cleanup=True)
+    logging.info("GPIO cleaned up and e-Paper module exited.")
