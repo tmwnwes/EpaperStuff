@@ -48,6 +48,12 @@ Ycoord = 0
 XcoordOLD = 0
 YcoordOLD = 0
 
+tempX = 0
+tempY = 0
+
+tempX2 = 0
+tempY2 = 0
+
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(clk1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -68,6 +74,7 @@ def rotary_thread():
     global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord
     try:
         while not shutdown_flag:
+
             # Handle Encoder 1
             clkState1 = GPIO.input(clk1)
             dtState1 = GPIO.input(dt1)
@@ -103,21 +110,18 @@ def rotary_thread():
 
 # Old coordinates update thread
 def update_old_coordinates():
-    global XcoordOLD, YcoordOLD, is_update
-    previous_XcoordOLD = XcoordOLD  # Store the previous value
-    previous_YcoordOLD = YcoordOLD  # Store the previous value
+    global XcoordOLD, YcoordOLD, tempX2, tempY2, is_update
+    XcoordOLD = 400
+    YcoordOLD = 240
+
     try:
         while not shutdown_flag:
             with lock: #maybe remove this
-                if previous_XcoordOLD != Xcoord or previous_YcoordOLD != Ycoord:  # Detect changes
-                    XcoordOLD = Xcoord
-                    YcoordOLD = Ycoord
-                    is_update = True
+                if is_update:  # Detect changes
+                    XcoordOLD = tempX2
+                    YcoordOLD = tempY2
                     print(f"Updated XcoordOLD: {XcoordOLD}, YcoordOLD: {YcoordOLD}")
-
-                # Update previous values for next iteration
-                previous_XcoordOLD = XcoordOLD
-                previous_YcoordOLD = YcoordOLD
+                    is_update = False
 
             time.sleep(1)
     except Exception as e:
@@ -136,39 +140,29 @@ try:
     encoder_thread.start()
     coord_update_thread.start()
 
-    logging.info("epd7in5b_V2 Demo")
+    logging.info("Etch a Sketch Test")
 
     epd = epd7in5b_V2.EPD()
     logging.info("init and Clear")
     epd.init()
     epd.Clear()
 
-    font24 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 24)
-    font18 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 18)
-
-    Himage = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame
-    Other = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame
+    Himage = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame BLACK
+    Other = Image.new('1', (epd.width, epd.height), 255)  # 255: clear the frame RED
     draw_Himage = ImageDraw.Draw(Himage)
     draw_other = ImageDraw.Draw(Other)
 
 
-    for x in range(10):
-        time.sleep(10)
-        draw_other.line((0, 0, Xcoord, Ycoord), fill = 0)
 
     for x in range(10):
-        if is_update:
-            draw_other.line((XcoordOLD, YcoordOLD, Xcoord, Ycoord), fill = 0)
-            is_update = False
-        time.sleep(4)
+        time.sleep(5)
+        tempX, tempY, tempX2, tempY2 = XcoordOLD, YcoordOLD, Xcoord, Ycoord
 
-    for x in range(10):
-        if is_update:
-            draw_Himage.line((XcoordOLD, YcoordOLD, Xcoord, Ycoord), fill = 0)
-            is_update = False
-        time.sleep(1)
+        draw_other.line((tempX, tempY, tempX2, tempY2), fill = 0)
+        epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
+        is_update = True
+        
 
-    epd.display(epd.getbuffer(Himage),epd.getbuffer(Other))
 
 
     # Drawing on the Horizontal image
@@ -207,6 +201,8 @@ except IOError as e:
 except KeyboardInterrupt:
     logging.info("Shutdown signal received.")
     logging.info("ctrl + c:")
+    logging.info("Goto Sleep...")
+    epd.sleep()
     shutdown_flag = True  # Signal threads to stop
     encoder_thread.join()  # Wait for threads to finish
     coord_update_thread.join()
