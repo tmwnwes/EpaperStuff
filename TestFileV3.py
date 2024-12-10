@@ -138,11 +138,9 @@ def left_button_check():
     global exit_drawing
     try:
         while not shutdown_flag:
-            with lock: #maybe remove this
-                buttonL.wait_for_press()
-                print(f"Left button pressed")
-                exit_drawing = True
-                time.sleep(0.05)
+            buttonL.wait_for_press()
+            print(f"Left button pressed")
+            exit_drawing = True
             time.sleep(0.05)
         exit_drawing = True
 
@@ -153,10 +151,8 @@ def right_button_check():
     global color_switch
     try:
         while not shutdown_flag:
-            with lock: #maybe remove this
-                buttonR.wait_for_press()
-                color_switch = not color_switch
-                time.sleep(0.05)
+            buttonR.wait_for_press()
+            color_switch = not color_switch
             time.sleep(0.05)
     except Exception as e:
         logging.error(f"Exception in right_button_check: {e}", exc_info=True)
