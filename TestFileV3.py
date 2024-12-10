@@ -52,8 +52,8 @@ lock = threading.Lock()
 # Coordinates for tracking
 Xcoord = 0
 Ycoord = 0
-XcoordOLD = 0
-YcoordOLD = 0
+XcoordOLD = 400
+YcoordOLD = 480
 
 tempX = 0
 tempY = 0
@@ -189,11 +189,11 @@ try:
     while not exit_drawing:
         # Draw and update coordinates
         tempX, tempY = XcoordOLD, YcoordOLD  # Start point
-        tempX2, tempY2 = Xcoord, Ycoord      # End point
 
         for x in range(5, 0, -1):
             print(x)
             time.sleep(1)
+        tempX2, tempY2 = Xcoord, Ycoord      # End point
 
         # Draw the line in the selected color
         if color_switch:
