@@ -43,17 +43,17 @@ clk1LastState = 0
 clk2LastState = 0
 
 shutdown_flag = False
-# is_update = False
+is_update = False
 color_switch = False
 exit_drawing = False
 
 lock = threading.Lock()
 
 # Coordinates for tracking
-Xcoord = 0
-Ycoord = 0
+Xcoord = 400
+Ycoord = 240
 XcoordOLD = 400
-YcoordOLD = 480
+YcoordOLD = 240
 
 tempX = 0
 tempY = 0
@@ -78,7 +78,7 @@ def map_value(value, in_min, in_max, out_min, out_max):
 
 # Rotary encoder processing thread
 def rotary_thread():
-    global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord
+    global counter1, counter2, clk1LastState, clk2LastState, Xcoord, Ycoord, is_update
     try:
         while not shutdown_flag:
 
@@ -93,6 +93,7 @@ def rotary_thread():
 
                 counter1 = max(0, min(counter1, 100))  # Limit counter to [0, 100]
                 Xcoord = map_value(counter1, 0, 100, range1_min, range1_max)
+                is_update = True
                 logging.info(f"Encoder 1 Counter: {counter1}, Mapped Xcoord: {Xcoord}")
             clk1LastState = clkState1
 
@@ -107,6 +108,7 @@ def rotary_thread():
 
                 counter2 = max(0, min(counter2, 100))  # Limit counter to [0, 100]
                 Ycoord = map_value(counter2, 0, 100, range2_min, range2_max)
+                is_update = True
                 logging.info(f"Encoder 2 Counter: {counter2}, Mapped Ycoord: {Ycoord}")
             clk2LastState = clkState2
 
@@ -186,6 +188,38 @@ try:
     draw_other = ImageDraw.Draw(Other)
 
 
+    # while not exit_drawing:
+    #     # Draw and update coordinates
+    #     tempX, tempY = XcoordOLD, YcoordOLD  # Start point
+
+    #     for x in range(5, 0, -1):
+    #         print(x)
+    #         time.sleep(1)
+        
+    #     tempX2, tempY2 = Xcoord, Ycoord      # End point
+
+    #     if is_update:
+    #         # Draw the line in the selected color
+    #         if color_switch:
+    #             draw_other.line((tempX, tempY, tempX2, tempY2), fill=0)
+    #             epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
+    #             print("Red drawn")
+    #         else:
+    #             draw_Himage.line((tempX, tempY, tempX2, tempY2), fill=0)
+    #             epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
+    #             print("Black drawn")
+            
+    #         is_update = False
+
+    #         # Update old coordinates for the next line
+    #         XcoordOLD, YcoordOLD = tempX2, tempY2
+
+
+
+    # Add a counter for partial refreshes
+    partial_refresh_count = 0
+    PARTIAL_REFRESH_LIMIT = 5  # Number of partial refreshes before a full refresh
+
     while not exit_drawing:
         # Draw and update coordinates
         tempX, tempY = XcoordOLD, YcoordOLD  # Start point
@@ -193,20 +227,44 @@ try:
         for x in range(5, 0, -1):
             print(x)
             time.sleep(1)
+        
         tempX2, tempY2 = Xcoord, Ycoord      # End point
 
-        # Draw the line in the selected color
-        if color_switch:
-            draw_other.line((tempX, tempY, tempX2, tempY2), fill=0)
-            epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
-            print("Red drawn")
-        else:
-            draw_Himage.line((tempX, tempY, tempX2, tempY2), fill=0)
-            epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))
-            print("Black drawn")
+        if is_update:
+            # Calculate the region to update
+            Xstart = min(tempX, tempX2) - 5  # Add padding for thickness
+            Ystart = min(tempY, tempY2) - 5
+            Xend = max(tempX, tempX2) + 5
+            Yend = max(tempY, tempY2) + 5
 
-        # Update old coordinates for the next line
-        XcoordOLD, YcoordOLD = tempX2, tempY2
+            # Ensure region is within bounds
+            Xstart = max(0, Xstart)
+            Ystart = max(0, Ystart)
+            Xend = min(epd.width, Xend)
+            Yend = min(epd.height, Yend)
+
+            # Draw the line in the selected color
+            if color_switch:
+                draw_other.line((tempX, tempY, tempX2, tempY2), fill=0)
+                epd.display_Partial(epd.getbuffer(Other), Xstart, Ystart, Xend, Yend)
+                print("Red drawn (Partial)")
+            else:
+                draw_Himage.line((tempX, tempY, tempX2, tempY2), fill=0)
+                epd.display_Partial(epd.getbuffer(Himage), Xstart, Ystart, Xend, Yend)
+                print("Black drawn (Partial)")
+
+            is_update = False
+            partial_refresh_count += 1  # Increment the partial refresh counter
+
+            # Update old coordinates for the next line
+            XcoordOLD, YcoordOLD = tempX2, tempY2
+
+            # Check if a full refresh is needed
+            if partial_refresh_count >= PARTIAL_REFRESH_LIMIT:
+                print("Performing full refresh...")
+                epd.display(epd.getbuffer(Himage), epd.getbuffer(Other))  # Full refresh
+                epd.init()  # Reinitialize after full refresh
+                partial_refresh_count = 0  # Reset the counter
 
 
     # logging.info("3.read bmp file")
